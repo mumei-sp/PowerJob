@@ -5,7 +5,12 @@ import tech.powerjob.common.model.WorkerAppInfo;
 import tech.powerjob.remote.framework.transporter.Transporter;
 import tech.powerjob.worker.background.OmsLogHandler;
 import tech.powerjob.worker.background.discovery.ServerDiscoveryService;
+import tech.powerjob.worker.container.OmsContainerFactory;
 import tech.powerjob.worker.core.executor.ExecutorManager;
+import tech.powerjob.worker.core.tracker.manager.HeavyTaskTrackerManager;
+import tech.powerjob.worker.core.tracker.manager.LightTaskTrackerManager;
+import tech.powerjob.worker.core.tracker.manager.ProcessorTrackerManager;
+import tech.powerjob.worker.persistence.PersistenceServiceManager;
 import tech.powerjob.worker.persistence.TaskPersistenceService;
 import tech.powerjob.worker.processor.ProcessorLoader;
 
@@ -48,6 +53,16 @@ public class WorkerRuntime {
     private ServerDiscoveryService serverDiscoveryService;
 
     private TaskPersistenceService taskPersistenceService;
+
+    private LightTaskTrackerManager lightTaskTrackerManager;
+
+    private HeavyTaskTrackerManager heavyTaskTrackerManager;
+
+    private ProcessorTrackerManager processorTrackerManager;
+
+    private OmsContainerFactory omsContainerFactory;
+
+    private PersistenceServiceManager persistenceServiceManager;
 
     public Long getAppId() {
         return Optional.ofNullable(appInfo.getAppId()).orElse(-1L);

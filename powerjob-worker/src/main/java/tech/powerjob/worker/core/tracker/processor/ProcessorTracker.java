@@ -14,7 +14,6 @@ import tech.powerjob.worker.common.WorkerRuntime;
 import tech.powerjob.worker.common.constants.TaskStatus;
 import tech.powerjob.worker.common.utils.TransportUtils;
 import tech.powerjob.worker.core.processor.runnable.HeavyProcessorRunnable;
-import tech.powerjob.worker.core.tracker.manager.ProcessorTrackerManager;
 import tech.powerjob.worker.extension.processor.ProcessorBean;
 import tech.powerjob.worker.extension.processor.ProcessorDefinition;
 import tech.powerjob.worker.log.OmsLogger;
@@ -194,7 +193,7 @@ public class ProcessorTracker {
 
         // 2. 去除顶层引用，送入GC世界
         statusReportRetryQueue.clear();
-        ProcessorTrackerManager.removeProcessorTracker(instanceId);
+        workerRuntime.getProcessorTrackerManager().removeProcessorTracker(instanceId);
 
         log.info("[ProcessorTracker-{}] ProcessorTracker destroyed successfully!", instanceId);
 

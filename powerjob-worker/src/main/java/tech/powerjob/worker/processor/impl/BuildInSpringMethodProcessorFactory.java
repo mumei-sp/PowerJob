@@ -22,7 +22,7 @@ import java.util.List;
 @Slf4j
 public class BuildInSpringMethodProcessorFactory extends AbstractBuildInSpringProcessorFactory {
 
-    private static final List<String> jobHandlerRepository = new LinkedList<>();
+    private final List<String> jobHandlerRepository = new LinkedList<>();
 
     private final static String DELIMITER = "#";
 
@@ -89,7 +89,7 @@ public class BuildInSpringMethodProcessorFactory extends AbstractBuildInSpringPr
     }
 
 
-    public static void registerJobHandler(String name) {
+    public void registerJobHandler(String name) {
         jobHandlerRepository.add(name);
     }
 

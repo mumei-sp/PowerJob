@@ -6,7 +6,6 @@ import tech.powerjob.common.response.AskResponse;
 import tech.powerjob.remote.framework.actor.Actor;
 import tech.powerjob.remote.framework.actor.Handler;
 import tech.powerjob.worker.common.WorkerRuntime;
-import tech.powerjob.worker.container.OmsContainerFactory;
 
 import static tech.powerjob.common.RemoteConstant.*;
 
@@ -31,12 +30,12 @@ public class WorkerActor {
 
     @Handler(path = WORKER_HANDLER_DEPLOY_CONTAINER)
     public void onReceiveServerDeployContainerRequest(ServerDeployContainerRequest request) {
-        OmsContainerFactory.deployContainer(request);
+        workerRuntime.getOmsContainerFactory().deployContainer(request);
     }
 
     @Handler(path = WORKER_HANDLER_DESTROY_CONTAINER)
     public void onReceiveServerDestroyContainerRequest(ServerDestroyContainerRequest request) {
-        OmsContainerFactory.destroyContainer(request.getContainerId());
+        workerRuntime.getOmsContainerFactory().destroyContainer(request.getContainerId());
     }
 
     @Handler(path = WTT_HANDLER_RUN_JOB)

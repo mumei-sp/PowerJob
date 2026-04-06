@@ -38,4 +38,10 @@ public class EngineConfig implements Serializable {
      * actor实例，交由使用侧自己实例化以便自行注入各种 bean
      */
     private List<Object> actorList;
+
+    /**
+     * Optional shared transport engine (e.g. Vertx instance) for multi-worker JVM mode.
+     * When non-null, the RemoteEngine should pass this to CSInitializer to share resources.
+     */
+    private transient Object sharedTransportEngine;
 }

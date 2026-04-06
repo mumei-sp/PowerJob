@@ -53,6 +53,7 @@ public class HttpVertxCSInitializer implements CSInitializer {
     private Vertx vertx;
     private HttpServer httpServer;
     private HttpClient httpClient;
+    private boolean ownsVertx;
 
     private CSInitializerConfig config;
 
@@ -77,7 +78,20 @@ public class HttpVertxCSInitializer implements CSInitializer {
             log.warn("[HttpVertxCSInitializer] hack jackson failed!", t);
         }
 
-        vertx = VertxInitializer.buildVertx();
+        // Reuse shared Vertx instance if provided (multi-worker JVM mode), else create our own
+        Object sharedEngine = config.getSharedTransportEngine();
+        if (sharedEngine instanceof Vertx) {
+            vertx = (Vertx) sharedEngine;
+            ownsVertx = false;
+            log.info("[HttpVertxCSInitializer] reusing shared Vertx instance");
+        } else {
+            if (sharedEngine != null) {
+                log.warn("[HttpVertxCSInitializer] sharedTransportEngine provided but is not a Vertx instance (type={}), creating new Vertx",
+                        sharedEngine.getClass().getName());
+            }
+            vertx = VertxInitializer.buildVertx();
+            ownsVertx = true;
+        }
         httpServer = VertxInitializer.buildHttpServer(vertx);
         httpClient = VertxInitializer.buildHttpClient(vertx);
     }
@@ -161,6 +175,9 @@ public class HttpVertxCSInitializer implements CSInitializer {
     public void close() throws IOException {
         httpClient.close();
         httpServer.close();
-        vertx.close();
+        // Only close Vertx if we created it (not shared across workers)
+        if (ownsVertx) {
+            vertx.close();
+        }
     }
 }

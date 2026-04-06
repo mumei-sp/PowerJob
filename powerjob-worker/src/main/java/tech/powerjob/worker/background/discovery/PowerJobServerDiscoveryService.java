@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 服务发现
@@ -47,9 +48,9 @@ public class PowerJobServerDiscoveryService implements ServerDiscoveryService {
 
     private static final String ASSERT_URL = "http://%s/server/assert?appName=%s";
     /**
-     * 失败次数
+     * 失败次数 (per-instance, thread-safe)
      */
-    private static int FAILED_COUNT = 0;
+    private final AtomicInteger failedCount = new AtomicInteger(0);
     /**
      * 最大失败次数
      */
@@ -57,8 +58,18 @@ public class PowerJobServerDiscoveryService implements ServerDiscoveryService {
 
     private final PowerJobWorkerConfig config;
 
+    /**
+     * HeavyTaskTrackerManager reference for killing frequent task trackers on server failure.
+     * Set via setter injection since WorkerRuntime is not fully built when this service is constructed.
+     */
+    private volatile HeavyTaskTrackerManager heavyTaskTrackerManager;
+
     public PowerJobServerDiscoveryService(PowerJobWorkerConfig config) {
         this.config = config;
+    }
+
+    public void setHeavyTaskTrackerManager(HeavyTaskTrackerManager heavyTaskTrackerManager) {
+        this.heavyTaskTrackerManager = heavyTaskTrackerManager;
     }
 
     @Override
@@ -179,24 +190,28 @@ public class PowerJobServerDiscoveryService implements ServerDiscoveryService {
             log.warn("[PowerDiscovery] can't find any available server, this worker has been quarantined.");
 
             // 在 Server 高可用的前提下，连续失败多次，说明该节点与外界失联，Server已经将秒级任务转移到其他Worker，需要杀死本地的任务
-            if (FAILED_COUNT++ > MAX_FAILED_COUNT) {
+            if (failedCount.getAndIncrement() > MAX_FAILED_COUNT) {
 
                 log.warn("[PowerDiscovery] can't find any available server for 3 consecutive times, It's time to kill all frequent job in this worker.");
-                List<Long> frequentInstanceIds = HeavyTaskTrackerManager.getAllFrequentTaskTrackerKeys();
-                if (!CollectionUtils.isEmpty(frequentInstanceIds)) {
-                    frequentInstanceIds.forEach(instanceId -> {
-                        HeavyTaskTracker taskTracker = HeavyTaskTrackerManager.removeTaskTracker(instanceId);
-                        taskTracker.destroy();
-                        log.warn("[PowerDiscovery] kill frequent instance(instanceId={}) due to can't find any available server.", instanceId);
-                    });
+                if (heavyTaskTrackerManager != null) {
+                    List<Long> frequentInstanceIds = heavyTaskTrackerManager.getAllFrequentTaskTrackerKeys();
+                    if (!CollectionUtils.isEmpty(frequentInstanceIds)) {
+                        frequentInstanceIds.forEach(instanceId -> {
+                            HeavyTaskTracker taskTracker = heavyTaskTrackerManager.removeTaskTracker(instanceId);
+                            if (taskTracker != null) {
+                                taskTracker.destroy();
+                                log.warn("[PowerDiscovery] kill frequent instance(instanceId={}) due to can't find any available server.", instanceId);
+                            }
+                        });
+                    }
                 }
 
-                FAILED_COUNT = 0;
+                failedCount.set(0);
             }
             return null;
         } else {
             // 重置失败次数
-            FAILED_COUNT = 0;
+            failedCount.set(0);
             log.debug("[PowerDiscovery] current server is {}.", result);
             return result;
         }

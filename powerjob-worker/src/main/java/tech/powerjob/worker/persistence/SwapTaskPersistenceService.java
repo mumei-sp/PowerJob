@@ -68,14 +68,17 @@ public class SwapTaskPersistenceService implements TaskPersistenceService {
      */
     private static final long DEFAULT_SCHEDULE_TIME = 60000;
 
-    public SwapTaskPersistenceService(InstanceInfo instanceInfo, TaskPersistenceService dbTaskPersistenceService) {
+    private final PersistenceServiceManager persistenceServiceManager;
+
+    public SwapTaskPersistenceService(InstanceInfo instanceInfo, TaskPersistenceService dbTaskPersistenceService, PersistenceServiceManager persistenceServiceManager) {
         this.instanceId = instanceInfo.getInstanceId();
         this.needResult = ExecuteType.MAP_REDUCE.name().equalsIgnoreCase(instanceInfo.getExecuteType());
         this.canUseSwap = ExecuteType.MAP.name().equalsIgnoreCase(instanceInfo.getExecuteType()) || ExecuteType.MAP_REDUCE.name().equalsIgnoreCase(instanceInfo.getExecuteType());
         this.dbTaskPersistenceService = dbTaskPersistenceService;
+        this.persistenceServiceManager = persistenceServiceManager;
         this.maxActiveTaskNum = Long.parseLong(System.getProperty(PowerJobDKey.WORKER_RUNTIME_SWAP_MAX_ACTIVE_TASK_NUM, String.valueOf(DEFAULT_RUNTIME_MAX_ACTIVE_TASK_NUM)));
         this.scheduleRateMs = Long.parseLong(System.getProperty(PowerJobDKey.WORKER_RUNTIME_SWAP_TASK_SCHEDULE_INTERVAL_MS, String.valueOf(DEFAULT_SCHEDULE_TIME)));
-        PersistenceServiceManager.register(this.instanceId, this);
+        persistenceServiceManager.register(this.instanceId, this);
         log.info("[SwapTaskPersistenceService-{}] initialized SwapTaskPersistenceService, canUseSwap: {}, needResult: {}, maxActiveTaskNum: {}, scheduleRateMs: {}", instanceId, canUseSwap, needResult, maxActiveTaskNum, scheduleRateMs);
     }
 
@@ -165,7 +168,7 @@ public class SwapTaskPersistenceService implements TaskPersistenceService {
                 externalTaskPersistenceService.close();
             }
         });
-        PersistenceServiceManager.unregister(instanceId);
+        persistenceServiceManager.unregister(instanceId);
         return dbTaskPersistenceService.deleteAllTasks(instanceId);
     }
 

@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import tech.powerjob.common.enums.ProcessorType;
 import tech.powerjob.worker.common.WorkerRuntime;
 import tech.powerjob.worker.container.OmsContainer;
-import tech.powerjob.worker.container.OmsContainerFactory;
 import tech.powerjob.worker.extension.processor.ProcessorBean;
 import tech.powerjob.worker.extension.processor.ProcessorDefinition;
 import tech.powerjob.worker.extension.processor.ProcessorFactory;
@@ -42,7 +41,7 @@ public class JarContainerProcessorFactory implements ProcessorFactory {
 
         log.info("[ProcessorFactory] try to load processor({}) in container({})", className, containerName);
 
-        OmsContainer omsContainer = OmsContainerFactory.fetchContainer(Long.valueOf(containerName), workerRuntime);
+        OmsContainer omsContainer = workerRuntime.getOmsContainerFactory().fetchContainer(Long.valueOf(containerName), workerRuntime);
         if (omsContainer != null) {
             return new ProcessorBean()
                     .setProcessor(omsContainer.getProcessor(className))

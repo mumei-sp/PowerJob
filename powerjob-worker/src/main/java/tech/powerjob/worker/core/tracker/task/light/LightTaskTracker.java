@@ -18,7 +18,6 @@ import tech.powerjob.worker.common.constants.TaskConstant;
 import tech.powerjob.worker.common.constants.TaskStatus;
 import tech.powerjob.worker.common.utils.TransportUtils;
 import tech.powerjob.worker.core.processor.*;
-import tech.powerjob.worker.core.tracker.manager.LightTaskTrackerManager;
 import tech.powerjob.worker.core.tracker.task.TaskTracker;
 import tech.powerjob.worker.extension.processor.ProcessorBean;
 import tech.powerjob.worker.extension.processor.ProcessorDefinition;
@@ -150,7 +149,7 @@ public class LightTaskTracker extends TaskTracker {
         if (processFuture != null) {
             processFuture.cancel(true);
         }
-        LightTaskTrackerManager.removeTaskTracker(instanceId);
+        workerRuntime.getLightTaskTrackerManager().removeTaskTracker(instanceId);
         // 最后一列为总耗时（即占用资源的耗时，当前时间减去创建时间）
         log.info("[TaskTracker-{}] remove TaskTracker,task status {},start time:{},end time:{},real cost:{},total time:{}", instanceId, status, taskStartTime, taskEndTime, taskEndTime != null ? taskEndTime - taskStartTime : "unknown", System.currentTimeMillis() - createTime);
     }

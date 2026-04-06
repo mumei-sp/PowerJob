@@ -7,7 +7,6 @@ import tech.powerjob.remote.framework.actor.Actor;
 import tech.powerjob.remote.framework.actor.Handler;
 import tech.powerjob.remote.framework.actor.ProcessType;
 import tech.powerjob.worker.common.WorkerRuntime;
-import tech.powerjob.worker.core.tracker.manager.ProcessorTrackerManager;
 import tech.powerjob.worker.core.tracker.processor.ProcessorTracker;
 import tech.powerjob.worker.persistence.TaskDO;
 import tech.powerjob.worker.pojo.request.TaskTrackerStartTaskReq;
@@ -41,7 +40,7 @@ public class ProcessorTrackerActor {
         Long instanceId = req.getInstanceInfo().getInstanceId();
 
         // 创建 ProcessorTracker 一定能成功
-        ProcessorTracker processorTracker = ProcessorTrackerManager.getProcessorTracker(
+        ProcessorTracker processorTracker = workerRuntime.getProcessorTrackerManager().getProcessorTracker(
                 instanceId,
                 req.getTaskTrackerAddress(),
                 () -> new ProcessorTracker(req, workerRuntime));
@@ -65,7 +64,7 @@ public class ProcessorTrackerActor {
     public void onReceiveTaskTrackerStopInstanceReq(TaskTrackerStopInstanceReq req) {
 
         Long instanceId = req.getInstanceId();
-        List<ProcessorTracker> removedPts = ProcessorTrackerManager.removeProcessorTracker(instanceId);
+        List<ProcessorTracker> removedPts = workerRuntime.getProcessorTrackerManager().removeProcessorTracker(instanceId);
         if (!CollectionUtils.isEmpty(removedPts)) {
             removedPts.forEach(ProcessorTracker::destroy);
         }

@@ -77,6 +77,14 @@ public class PowerJobWorkerConfig {
 
     private String tag;
     /**
+     * External address for NAT/load balancer scenarios. Overrides NT_EXTERNAL_ADDRESS system property.
+     */
+    private String externalAddress;
+    /**
+     * External port for NAT/load balancer scenarios. Overrides NT_EXTERNAL_PORT system property.
+     */
+    private Integer externalPort;
+    /**
      * Max numbers of LightTaskTacker
      */
     private Integer maxLightweightTaskNum = 1024;
@@ -88,5 +96,11 @@ public class PowerJobWorkerConfig {
      * Interval(s) of worker health report
      */
     private Integer healthReportInterval = 10;
+
+    /**
+     * Shared transport engine (e.g. Vertx instance) for multi-worker JVM mode.
+     * When set, workers share this engine's thread pools instead of creating their own.
+     */
+    private transient Object sharedTransportEngine;
 
 }

@@ -22,25 +22,25 @@ public class ProcessorTrackerManager {
      * instanceId -> (TaskTrackerAddress -> ProcessorTracker)
      * 处理脑裂情况下同一个 Instance 存在多个 TaskTracker 的情况
      */
-    private static final Map<Long, Map<String, ProcessorTracker>> PROCESSOR_TRACKER_CONTAINER = Maps.newHashMap();
+    private final Map<Long, Map<String, ProcessorTracker>> processorTrackerContainer = Maps.newHashMap();
 
     /**
      * 获取 ProcessorTracker，如果不存在则创建
      */
-    public static synchronized ProcessorTracker getProcessorTracker(Long instanceId, String address, Supplier<ProcessorTracker> creator) {
+    public synchronized ProcessorTracker getProcessorTracker(Long instanceId, String address, Supplier<ProcessorTracker> creator) {
 
-        ProcessorTracker processorTracker = PROCESSOR_TRACKER_CONTAINER.getOrDefault(instanceId, Collections.emptyMap()).get(address);
+        ProcessorTracker processorTracker = processorTrackerContainer.getOrDefault(instanceId, Collections.emptyMap()).get(address);
         if (processorTracker == null) {
             processorTracker = creator.get();
-            PROCESSOR_TRACKER_CONTAINER.computeIfAbsent(instanceId, ignore -> Maps.newHashMap()).put(address, processorTracker);
+            processorTrackerContainer.computeIfAbsent(instanceId, ignore -> Maps.newHashMap()).put(address, processorTracker);
         }
         return processorTracker;
     }
 
-    public static synchronized List<ProcessorTracker> removeProcessorTracker(Long instanceId) {
+    public synchronized List<ProcessorTracker> removeProcessorTracker(Long instanceId) {
 
         List<ProcessorTracker> res = Lists.newLinkedList();
-        Map<String, ProcessorTracker> ttAddress2Pt = PROCESSOR_TRACKER_CONTAINER.remove(instanceId);
+        Map<String, ProcessorTracker> ttAddress2Pt = processorTrackerContainer.remove(instanceId);
         if (ttAddress2Pt != null) {
             res.addAll(ttAddress2Pt.values());
             ttAddress2Pt.clear();
