@@ -29,4 +29,11 @@ public class CSInitializerConfig implements Serializable {
     private Address externalAddress;
 
     private ServerType serverType;
+
+    /**
+     * Optional shared transport instance (e.g. Vertx) for multi-worker JVM mode.
+     * When non-null, CSInitializer should reuse this instead of creating its own.
+     * Typed as Object to avoid transport-specific dependency in the framework module.
+     */
+    private transient Object sharedTransportEngine;
 }

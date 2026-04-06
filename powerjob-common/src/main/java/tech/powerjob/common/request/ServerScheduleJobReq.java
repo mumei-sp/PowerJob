@@ -15,6 +15,11 @@ import java.util.List;
 public class ServerScheduleJobReq implements PowerSerializable {
 
     /**
+     * 应用ID，用于多Worker路由和调试
+     */
+    private Long appId;
+
+    /**
      * 可用处理器地址，可能多值，逗号分隔
      */
     private List<String> allWorkerAddress;

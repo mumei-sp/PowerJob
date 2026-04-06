@@ -47,6 +47,7 @@ public class PowerJobRemoteEngine implements RemoteEngine {
                 .setBindAddress(engineConfig.getBindAddress())
                 .setExternalAddress(engineConfig.getExternalAddress())
                 .setServerType(engineConfig.getServerType())
+                .setSharedTransportEngine(engineConfig.getSharedTransportEngine())
         );
 
         // 构建通讯器

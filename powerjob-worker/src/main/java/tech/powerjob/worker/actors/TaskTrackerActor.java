@@ -51,7 +51,7 @@ public class TaskTrackerActor {
 
         int taskStatus = req.getStatus();
         // 只有重量级任务才会有两级任务状态上报的机制
-        HeavyTaskTracker taskTracker = HeavyTaskTrackerManager.getTaskTracker(req.getInstanceId());
+        HeavyTaskTracker taskTracker = workerRuntime.getHeavyTaskTrackerManager().getTaskTracker(req.getInstanceId());
 
         // 手动停止 TaskTracker 的情况下会出现这种情况
         if (taskTracker == null) {
@@ -82,7 +82,7 @@ public class TaskTrackerActor {
     @Handler(path = WTT_HANDLER_MAP_TASK)
     public AskResponse onReceiveProcessorMapTaskRequest(ProcessorMapTaskRequest req) {
 
-        HeavyTaskTracker taskTracker = HeavyTaskTrackerManager.getTaskTracker(req.getInstanceId());
+        HeavyTaskTracker taskTracker = workerRuntime.getHeavyTaskTrackerManager().getTaskTracker(req.getInstanceId());
         if (taskTracker == null) {
             log.warn("[TaskTrackerActor] receive ProcessorMapTaskRequest({}) but system can't find TaskTracker.", req);
             return null;
@@ -122,38 +122,40 @@ public class TaskTrackerActor {
     public void onReceiveServerScheduleJobReq(ServerScheduleJobReq req) {
         log.debug("[TaskTrackerActor] server schedule job by request: {}.", req);
         Long instanceId = req.getInstanceId();
+        LightTaskTrackerManager lightManager = workerRuntime.getLightTaskTrackerManager();
+        HeavyTaskTrackerManager heavyManager = workerRuntime.getHeavyTaskTrackerManager();
         // 区分轻量级任务模型以及重量级任务模型
         if (isLightweightTask(req)) {
-            final LightTaskTracker taskTracker = LightTaskTrackerManager.getTaskTracker(instanceId);
+            final LightTaskTracker taskTracker = lightManager.getTaskTracker(instanceId);
             if (taskTracker != null) {
                 log.warn("[TaskTrackerActor] LightTaskTracker({}) for instance(id={}) already exists.", taskTracker, instanceId);
                 return;
             }
             // 判断是否已经 overload
-            if (LightTaskTrackerManager.currentTaskTrackerSize() >= workerRuntime.getWorkerConfig().getMaxLightweightTaskNum() * LightTaskTrackerManager.OVERLOAD_FACTOR) {
+            if (lightManager.currentTaskTrackerSize() >= workerRuntime.getWorkerConfig().getMaxLightweightTaskNum() * LightTaskTrackerManager.OVERLOAD_FACTOR) {
                 // ignore this request
-                log.warn("[TaskTrackerActor] this worker is overload,ignore this request(instanceId={}),current size = {}!",instanceId,LightTaskTrackerManager.currentTaskTrackerSize());
+                log.warn("[TaskTrackerActor] this worker is overload,ignore this request(instanceId={}),current size = {}!",instanceId,lightManager.currentTaskTrackerSize());
                 return;
             }
-            if (LightTaskTrackerManager.currentTaskTrackerSize() >= workerRuntime.getWorkerConfig().getMaxLightweightTaskNum()) {
-                log.warn("[TaskTrackerActor] this worker will be overload soon,current size = {}!",LightTaskTrackerManager.currentTaskTrackerSize());
+            if (lightManager.currentTaskTrackerSize() >= workerRuntime.getWorkerConfig().getMaxLightweightTaskNum()) {
+                log.warn("[TaskTrackerActor] this worker will be overload soon,current size = {}!",lightManager.currentTaskTrackerSize());
             }
             // 创建轻量级任务
-            LightTaskTrackerManager.atomicCreateTaskTracker(instanceId, ignore -> LightTaskTracker.create(req, workerRuntime));
+            lightManager.atomicCreateTaskTracker(instanceId, ignore -> LightTaskTracker.create(req, workerRuntime));
         } else {
-            HeavyTaskTracker taskTracker = HeavyTaskTrackerManager.getTaskTracker(instanceId);
+            HeavyTaskTracker taskTracker = heavyManager.getTaskTracker(instanceId);
             if (taskTracker != null) {
                 log.warn("[TaskTrackerActor] HeavyTaskTracker({}) for instance(id={}) already exists.", taskTracker, instanceId);
                 return;
             }
             // 判断是否已经 overload
-            if (HeavyTaskTrackerManager.currentTaskTrackerSize() >= workerRuntime.getWorkerConfig().getMaxHeavyweightTaskNum()) {
+            if (heavyManager.currentTaskTrackerSize() >= workerRuntime.getWorkerConfig().getMaxHeavyweightTaskNum()) {
                 // ignore this request
-                log.warn("[TaskTrackerActor] this worker is overload,ignore this request(instanceId={})! current size = {},", instanceId, HeavyTaskTrackerManager.currentTaskTrackerSize());
+                log.warn("[TaskTrackerActor] this worker is overload,ignore this request(instanceId={})! current size = {},", instanceId, heavyManager.currentTaskTrackerSize());
                 return;
             }
             // 原子创建，防止多实例的存在
-            HeavyTaskTrackerManager.atomicCreateTaskTracker(instanceId, ignore -> HeavyTaskTracker.create(req, workerRuntime));
+            heavyManager.atomicCreateTaskTracker(instanceId, ignore -> HeavyTaskTracker.create(req, workerRuntime));
         }
     }
 
@@ -163,7 +165,7 @@ public class TaskTrackerActor {
     @Handler(path = WTT_HANDLER_REPORT_PROCESSOR_TRACKER_STATUS)
     public void onReceiveProcessorTrackerStatusReportReq(ProcessorTrackerStatusReportReq req) {
 
-        HeavyTaskTracker taskTracker = HeavyTaskTrackerManager.getTaskTracker(req.getInstanceId());
+        HeavyTaskTracker taskTracker = workerRuntime.getHeavyTaskTrackerManager().getTaskTracker(req.getInstanceId());
         if (taskTracker == null) {
             log.warn("[TaskTrackerActor] receive ProcessorTrackerStatusReportReq({}) but system can't find TaskTracker.", req);
             return;
@@ -178,12 +180,12 @@ public class TaskTrackerActor {
     public void onReceiveServerStopInstanceReq(ServerStopInstanceReq req) {
 
         log.info("[TaskTrackerActor] receive ServerStopInstanceReq({}).", req);
-        HeavyTaskTracker heavyTaskTracker = HeavyTaskTrackerManager.getTaskTracker(req.getInstanceId());
+        HeavyTaskTracker heavyTaskTracker = workerRuntime.getHeavyTaskTrackerManager().getTaskTracker(req.getInstanceId());
         if (heavyTaskTracker != null) {
             heavyTaskTracker.stopTask();
             return;
         }
-        LightTaskTracker lightTaskTracker = LightTaskTrackerManager.getTaskTracker(req.getInstanceId());
+        LightTaskTracker lightTaskTracker = workerRuntime.getLightTaskTrackerManager().getTaskTracker(req.getInstanceId());
         if (lightTaskTracker != null) {
             lightTaskTracker.stopTask();
             return;
@@ -197,8 +199,8 @@ public class TaskTrackerActor {
     @Handler(path = WTT_HANDLER_QUERY_INSTANCE_STATUS)
     public AskResponse onReceiveServerQueryInstanceStatusReq(ServerQueryInstanceStatusReq req) {
         AskResponse askResponse;
-        TaskTracker taskTracker = HeavyTaskTrackerManager.getTaskTracker(req.getInstanceId());
-        if (taskTracker == null && (taskTracker = LightTaskTrackerManager.getTaskTracker(req.getInstanceId())) == null) {
+        TaskTracker taskTracker = workerRuntime.getHeavyTaskTrackerManager().getTaskTracker(req.getInstanceId());
+        if (taskTracker == null && (taskTracker = workerRuntime.getLightTaskTrackerManager().getTaskTracker(req.getInstanceId())) == null) {
             log.warn("[TaskTrackerActor] receive ServerQueryInstanceStatusReq({}) but system can't find TaskTracker.", req);
             askResponse = AskResponse.failed("can't find TaskTracker");
         } else {

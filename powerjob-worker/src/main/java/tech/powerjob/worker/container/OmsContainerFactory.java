@@ -27,8 +27,20 @@ import java.util.Map;
 @Slf4j
 public class OmsContainerFactory {
 
-    private static final String CONTAINER_DIR = PowerFileUtils.workspace() + "/container/";
-    private static final Map<Long, OmsContainer> CARGO = Maps.newConcurrentMap();
+    private final String containerDir;
+    private final Map<Long, OmsContainer> cargo = Maps.newConcurrentMap();
+
+    public OmsContainerFactory() {
+        this.containerDir = PowerFileUtils.workspace() + "/container/";
+    }
+
+    /**
+     * Constructor with custom workspace for multi-worker isolation.
+     * @param workspace per-worker workspace directory
+     */
+    public OmsContainerFactory(String workspace) {
+        this.containerDir = workspace + "/container/";
+    }
 
     /**
      * 获取容器
@@ -36,11 +48,15 @@ public class OmsContainerFactory {
      * @param workerRuntime 当容器不存在且 serverActor 非空时，尝试从服务端重新拉取容器
      * @return 容器示例，可能为 null
      */
-    public static OmsContainer fetchContainer(Long containerId, WorkerRuntime workerRuntime) {
+    public OmsContainer fetchContainer(Long containerId, WorkerRuntime workerRuntime) {
 
-        OmsContainer omsContainer = CARGO.get(containerId);
+        OmsContainer omsContainer = cargo.get(containerId);
         if (omsContainer != null) {
             return omsContainer;
+        }
+
+        if (workerRuntime == null) {
+            return null;
         }
 
         final String currentServerAddress = workerRuntime.getServerDiscoveryService().getCurrentServerAddress();
@@ -64,7 +80,7 @@ public class OmsContainerFactory {
             log.error("[OmsContainer-{}] get container failed, exception is {}", containerId, e.toString());
         }
 
-        return CARGO.get(containerId);
+        return cargo.get(containerId);
     }
 
 
@@ -72,7 +88,7 @@ public class OmsContainerFactory {
      * 部署容器，整个过程串行进行，问题不大
      * @param request 部署容器请求
      */
-    public static synchronized void deployContainer(ServerDeployContainerRequest request) {
+    public synchronized void deployContainer(ServerDeployContainerRequest request) {
 
         Long containerId = request.getContainerId();
         String containerName = request.getContainerName();
@@ -80,13 +96,13 @@ public class OmsContainerFactory {
 
         log.info("[OmsContainer-{}] start to deploy container(name={},version={},downloadUrl={})", containerId, containerName, version, request.getDownloadURL());
 
-        OmsContainer oldContainer = CARGO.get(containerId);
+        OmsContainer oldContainer = cargo.get(containerId);
         if (oldContainer != null && version.equals(oldContainer.getVersion())) {
             log.info("[OmsContainer-{}] version={} already deployed, so skip this deploy task.", containerId, version);
             return;
         }
 
-        String filePath = CONTAINER_DIR + containerId + "/" + version + ".jar";
+        String filePath = containerDir + containerId + "/" + version + ".jar";
         // 下载Container到本地
         File jarFile = new File(filePath);
 
@@ -99,11 +115,11 @@ public class OmsContainerFactory {
             }
 
             // 创建新容器
-            OmsContainer newContainer = new OmsJarContainer(containerId, containerName, version, jarFile);
+            OmsContainer newContainer = new OmsJarContainer(containerId, containerName, version, jarFile, this);
             newContainer.init();
 
             // 替换容器
-            CARGO.put(containerId, newContainer);
+            cargo.put(containerId, newContainer);
             log.info("[OmsContainer-{}] deployed new version:{} successfully!", containerId, version);
 
             if (oldContainer != null) {
@@ -123,9 +139,9 @@ public class OmsContainerFactory {
      * 获取该Worker已部署容器的信息
      * @return 已部署容器信息
      */
-    public static List<DeployedContainerInfo> getDeployedContainerInfos() {
+    public List<DeployedContainerInfo> getDeployedContainerInfos() {
         List<DeployedContainerInfo> info = Lists.newLinkedList();
-        CARGO.forEach((name, container) -> info.add(new DeployedContainerInfo(container.getContainerId(), container.getVersion(), container.getDeployedTime(), null)));
+        cargo.forEach((name, container) -> info.add(new DeployedContainerInfo(container.getContainerId(), container.getVersion(), container.getDeployedTime(), null)));
         return info;
     }
 
@@ -133,8 +149,8 @@ public class OmsContainerFactory {
      * 销毁指定容器
      * @param containerId 容器ID
      */
-    public static void destroyContainer(Long containerId) {
-        OmsContainer container = CARGO.remove(containerId);
+    public void destroyContainer(Long containerId) {
+        OmsContainer container = cargo.remove(containerId);
         if (container == null) {
             log.info("[OmsContainer-{}] container not exists, so there is no need to destroy the container.", containerId);
             return;

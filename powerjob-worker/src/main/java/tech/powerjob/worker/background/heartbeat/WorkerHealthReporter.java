@@ -9,9 +9,6 @@ import tech.powerjob.common.request.WorkerHeartbeat;
 import tech.powerjob.worker.common.PowerJobWorkerVersion;
 import tech.powerjob.worker.common.WorkerRuntime;
 import tech.powerjob.worker.common.utils.TransportUtils;
-import tech.powerjob.worker.container.OmsContainerFactory;
-import tech.powerjob.worker.core.tracker.manager.HeavyTaskTrackerManager;
-import tech.powerjob.worker.core.tracker.manager.LightTaskTrackerManager;
 
 
 /**
@@ -53,14 +50,16 @@ public class WorkerHealthReporter extends SafeRunnable {
         heartbeat.setTag(workerRuntime.getWorkerConfig().getTag());
 
         // 上报 Tracker 数量
-        heartbeat.setLightTaskTrackerNum(LightTaskTrackerManager.currentTaskTrackerSize());
-        heartbeat.setHeavyTaskTrackerNum(HeavyTaskTrackerManager.currentTaskTrackerSize());
+        int lightSize = workerRuntime.getLightTaskTrackerManager().currentTaskTrackerSize();
+        int heavySize = workerRuntime.getHeavyTaskTrackerManager().currentTaskTrackerSize();
+        heartbeat.setLightTaskTrackerNum(lightSize);
+        heartbeat.setHeavyTaskTrackerNum(heavySize);
         // 是否超载
-        if (workerRuntime.getWorkerConfig().getMaxLightweightTaskNum() <= LightTaskTrackerManager.currentTaskTrackerSize() || workerRuntime.getWorkerConfig().getMaxHeavyweightTaskNum() <= HeavyTaskTrackerManager.currentTaskTrackerSize()){
+        if (workerRuntime.getWorkerConfig().getMaxLightweightTaskNum() <= lightSize || workerRuntime.getWorkerConfig().getMaxHeavyweightTaskNum() <= heavySize){
             heartbeat.setOverload(true);
         }
         // 获取当前加载的容器列表
-        heartbeat.setContainerInfos(OmsContainerFactory.getDeployedContainerInfos());
+        heartbeat.setContainerInfos(workerRuntime.getOmsContainerFactory().getDeployedContainerInfos());
         // 发送请求
         if (StringUtils.isEmpty(currentServer)) {
             return;

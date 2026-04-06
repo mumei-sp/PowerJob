@@ -25,11 +25,17 @@ import tech.powerjob.worker.background.discovery.PowerJobServerDiscoveryService;
 import tech.powerjob.worker.background.discovery.ServerDiscoveryService;
 import tech.powerjob.worker.common.PowerBannerPrinter;
 import tech.powerjob.worker.common.PowerJobWorkerConfig;
+import tech.powerjob.worker.common.utils.PowerFileUtils;
 import tech.powerjob.worker.common.WorkerRuntime;
 import tech.powerjob.worker.common.utils.WorkerNetUtils;
+import tech.powerjob.worker.container.OmsContainerFactory;
 import tech.powerjob.worker.core.executor.ExecutorManager;
+import tech.powerjob.worker.core.tracker.manager.HeavyTaskTrackerManager;
+import tech.powerjob.worker.core.tracker.manager.LightTaskTrackerManager;
+import tech.powerjob.worker.core.tracker.manager.ProcessorTrackerManager;
 import tech.powerjob.worker.extension.processor.ProcessorFactory;
-import tech.powerjob.worker.persistence.DbTaskPersistenceService;
+import tech.powerjob.worker.persistence.PersistenceServiceManager;
+import tech.powerjob.worker.persistence.LazyTaskPersistenceService;
 import tech.powerjob.worker.persistence.TaskPersistenceService;
 import tech.powerjob.worker.processor.PowerJobProcessorLoader;
 import tech.powerjob.worker.processor.ProcessorLoader;
@@ -73,8 +79,26 @@ public class PowerJobWorker {
         PowerJobWorkerConfig config = workerRuntime.getWorkerConfig();
         CommonUtils.requireNonNull(config, "can't find PowerJobWorkerConfig, please set PowerJobWorkerConfig first");
 
-        ServerDiscoveryService serverDiscoveryService = new PowerJobServerDiscoveryService(config);
+        PowerJobServerDiscoveryService serverDiscoveryService = new PowerJobServerDiscoveryService(config);
         workerRuntime.setServerDiscoveryService(serverDiscoveryService);
+
+        // Initialize per-instance managers (enables multi-worker-per-JVM support)
+        LightTaskTrackerManager lightTaskTrackerManager = new LightTaskTrackerManager();
+        HeavyTaskTrackerManager heavyTaskTrackerManager = new HeavyTaskTrackerManager();
+        ProcessorTrackerManager processorTrackerManager = new ProcessorTrackerManager();
+        // Use appName-scoped workspace to avoid container directory collisions in multi-worker mode
+        String workerWorkspace = PowerFileUtils.workspace() + "/" + config.getAppName();
+        OmsContainerFactory omsContainerFactory = new OmsContainerFactory(workerWorkspace);
+        PersistenceServiceManager persistenceServiceManager = new PersistenceServiceManager();
+
+        workerRuntime.setLightTaskTrackerManager(lightTaskTrackerManager);
+        workerRuntime.setHeavyTaskTrackerManager(heavyTaskTrackerManager);
+        workerRuntime.setProcessorTrackerManager(processorTrackerManager);
+        workerRuntime.setOmsContainerFactory(omsContainerFactory);
+        workerRuntime.setPersistenceServiceManager(persistenceServiceManager);
+
+        // Wire discovery service to heavy manager for frequent tracker cleanup on server failure
+        serverDiscoveryService.setHeavyTaskTrackerManager(heavyTaskTrackerManager);
 
         try {
             PowerBannerPrinter.print();
@@ -88,8 +112,12 @@ public class PowerJobWorker {
             workerRuntime.setAppInfo(appInfo);
 
             // 初始化网络数据，区别对待上报地址和本机绑定地址（对外统一使用上报地址）
-            String externalIp = PropertyUtils.readProperty(PowerJobDKey.NT_EXTERNAL_ADDRESS, null);
-            String externalPort = PropertyUtils.readProperty(PowerJobDKey.NT_EXTERNAL_PORT, String.valueOf(localBindPort));
+            // Prefer per-worker config over JVM-wide system properties (enables multi-worker-per-JVM)
+            String externalIp = Optional.ofNullable(config.getExternalAddress())
+                    .orElse(PropertyUtils.readProperty(PowerJobDKey.NT_EXTERNAL_ADDRESS, null));
+            String externalPort = Optional.ofNullable(config.getExternalPort())
+                    .map(String::valueOf)
+                    .orElse(PropertyUtils.readProperty(PowerJobDKey.NT_EXTERNAL_PORT, String.valueOf(localBindPort)));
             log.info("[PowerJobWorker] [ADDRESS_INFO] localBindIp: {}, localBindPort: {}; externalIp: {}, externalPort: {}", localBindIp, localBindPort, externalIp, externalPort);
             workerRuntime.setWorkerAddress(Address.toFullAddress(Optional.ofNullable(externalIp).orElse(localBindIp), Integer.parseInt(externalPort)));
 
@@ -111,7 +139,8 @@ public class PowerJobWorker {
                     .setType(config.getProtocol().name())
                     .setServerType(ServerType.WORKER)
                     .setBindAddress(new Address().setHost(localBindIp).setPort(localBindPort))
-                    .setActorList(Lists.newArrayList(taskTrackerActor, processorTrackerActor, workerActor));
+                    .setActorList(Lists.newArrayList(taskTrackerActor, processorTrackerActor, workerActor))
+                    .setSharedTransportEngine(config.getSharedTransportEngine());
 
             if (StringUtils.isNotEmpty(externalIp)) {
                 Address externalAddress = new Address().setHost(externalIp).setPort(Integer.parseInt(externalPort));
@@ -131,11 +160,10 @@ public class PowerJobWorker {
             OmsLogHandler omsLogHandler = new OmsLogHandler(workerRuntime.getWorkerAddress(), workerRuntime.getTransporter(), serverDiscoveryService);
             workerRuntime.setOmsLogHandler(omsLogHandler);
 
-            // 初始化存储
-            TaskPersistenceService taskPersistenceService = new DbTaskPersistenceService(workerRuntime.getWorkerConfig().getStoreStrategy());
-            taskPersistenceService.init();
+            // 初始化存储 (lazy: H2 only initialized when first heavy task arrives, saving resources for standalone-only workloads)
+            TaskPersistenceService taskPersistenceService = new LazyTaskPersistenceService(workerRuntime.getWorkerConfig().getStoreStrategy());
             workerRuntime.setTaskPersistenceService(taskPersistenceService);
-            log.info("[PowerJobWorker] local storage initialized successfully.");
+            log.info("[PowerJobWorker] local storage configured with lazy initialization.");
 
 
             // 初始化定时任务

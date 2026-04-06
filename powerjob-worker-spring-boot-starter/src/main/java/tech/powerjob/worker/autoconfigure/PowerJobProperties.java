@@ -10,6 +10,9 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.DeprecatedConfigurationProperty;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 /**
  * PowerJob properties configuration class.
  *
@@ -92,6 +95,30 @@ public class PowerJobProperties {
     }
 
     /**
+     * Multi-app-group module configurations.
+     * When this map is non-empty, the single-worker 'worker' config is ignored
+     * and one PowerJobWorker is created per module entry.
+     *
+     * <pre>
+     * powerjob:
+     *   modules:
+     *     payments:
+     *       app-name: payments-app
+     *       server-address: 10.0.0.1:7700,10.0.0.2:7700
+     *       max-lightweight-task-num: 50
+     *     reports:
+     *       app-name: reports-app
+     *       server-address: 10.0.0.1:7700
+     *       max-lightweight-task-num: 100
+     * </pre>
+     */
+    private Map<String, ModuleWorker> modules = new LinkedHashMap<>();
+
+    public Map<String, ModuleWorker> getModules() {
+        return modules;
+    }
+
+    /**
      * Powerjob worker configuration properties.
      */
     @Setter
@@ -170,5 +197,48 @@ public class PowerJobProperties {
          */
         private Integer healthReportInterval = 10;
 
+    }
+
+    /**
+     * Per-module worker configuration for multi-app-group mode.
+     */
+    @Setter
+    @Getter
+    public static class ModuleWorker {
+
+        /**
+         * Application name (must match registered app on server).
+         */
+        private String appName;
+
+        /**
+         * Server addresses, comma-separated. e.g. "10.0.0.1:7700,10.0.0.2:7700"
+         */
+        private String serverAddress;
+
+        /**
+         * Worker port. Use negative value or omit for random port. Each module must use a different port.
+         */
+        private Integer port;
+
+        /**
+         * Max concurrent lightweight tasks for this module.
+         */
+        private Integer maxLightweightTaskNum = 1024;
+
+        /**
+         * Max concurrent heavyweight tasks for this module.
+         */
+        private Integer maxHeavyweightTaskNum = 64;
+
+        /**
+         * Heartbeat interval in seconds.
+         */
+        private Integer healthReportInterval = 10;
+
+        /**
+         * Worker tag for dispatch filtering.
+         */
+        private String tag;
     }
 }

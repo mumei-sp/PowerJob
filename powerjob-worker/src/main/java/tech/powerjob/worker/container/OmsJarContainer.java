@@ -31,6 +31,7 @@ public class OmsJarContainer implements OmsContainer {
     private final String version;
     private final File localJarFile;
     private final Long deployedTime;
+    private final OmsContainerFactory containerFactory;
 
     // 引用计数器
     private final AtomicInteger referenceCount = new AtomicInteger(0);
@@ -40,12 +41,13 @@ public class OmsJarContainer implements OmsContainer {
 
     private final Map<String, BasicProcessor> processorCache = Maps.newConcurrentMap();
 
-    public OmsJarContainer(Long containerId, String name, String version, File localJarFile) {
+    public OmsJarContainer(Long containerId, String name, String version, File localJarFile, OmsContainerFactory containerFactory) {
         this.containerId = containerId;
         this.name = name;
         this.version = version;
         this.localJarFile = localJarFile;
         this.deployedTime = System.currentTimeMillis();
+        this.containerFactory = containerFactory;
     }
 
     @Override
@@ -190,7 +192,7 @@ public class OmsJarContainer implements OmsContainer {
         // 需要满足的条件：引用计数器减为0 & 有更新的容器出现
         if (referenceCount.decrementAndGet() <= 0) {
 
-            OmsContainer container = OmsContainerFactory.fetchContainer(containerId, null);
+            OmsContainer container = containerFactory.fetchContainer(containerId, null);
             if (container != this) {
                 try {
                     destroy();

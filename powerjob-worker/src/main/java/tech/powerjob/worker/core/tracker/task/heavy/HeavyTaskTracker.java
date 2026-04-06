@@ -27,7 +27,6 @@ import tech.powerjob.worker.common.constants.TaskStatus;
 import tech.powerjob.worker.common.utils.TransportUtils;
 import tech.powerjob.worker.common.utils.WorkflowContextUtils;
 import tech.powerjob.worker.core.ha.ProcessorTrackerStatusHolder;
-import tech.powerjob.worker.core.tracker.manager.HeavyTaskTrackerManager;
 import tech.powerjob.worker.core.tracker.task.TaskTracker;
 import tech.powerjob.worker.persistence.TaskDO;
 import tech.powerjob.worker.persistence.TaskPersistenceService;
@@ -380,7 +379,7 @@ public abstract class HeavyTaskTracker extends TaskTracker {
         }
 
         // 3. 移除顶层引用，送去 GC
-        HeavyTaskTrackerManager.removeTaskTracker(instanceId);
+        workerRuntime.getHeavyTaskTrackerManager().removeTaskTracker(instanceId);
 
         log.info("[TaskTracker-{}] TaskTracker has left the world(using {}), bye~", instanceId, sw.stop());
 

@@ -62,7 +62,7 @@ public class CommonTaskTracker extends HeavyTaskTracker {
 
     @Override
     protected TaskPersistenceService initTaskPersistenceService(InstanceInfo instanceInfo, WorkerRuntime workerRuntime) {
-        return new SwapTaskPersistenceService(instanceInfo, workerRuntime.getTaskPersistenceService());
+        return new SwapTaskPersistenceService(instanceInfo, workerRuntime.getTaskPersistenceService(), workerRuntime.getPersistenceServiceManager());
     }
 
     @Override

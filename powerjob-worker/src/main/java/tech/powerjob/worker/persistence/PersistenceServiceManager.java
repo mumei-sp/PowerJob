@@ -12,17 +12,17 @@ import java.util.Map;
  */
 public class PersistenceServiceManager {
 
-    private static final Map<Long, TaskPersistenceService> INSTANCE_ID_2_TASK_PERSISTENCE_SERVICE = Maps.newConcurrentMap();
+    private final Map<Long, TaskPersistenceService> instanceId2TaskPersistenceService = Maps.newConcurrentMap();
 
-    public static void register(Long instanceId, TaskPersistenceService taskPersistenceService) {
-        INSTANCE_ID_2_TASK_PERSISTENCE_SERVICE.put(instanceId, taskPersistenceService);
+    public void register(Long instanceId, TaskPersistenceService taskPersistenceService) {
+        instanceId2TaskPersistenceService.put(instanceId, taskPersistenceService);
     }
 
-    public static void unregister(Long instanceId) {
-        INSTANCE_ID_2_TASK_PERSISTENCE_SERVICE.remove(instanceId);
+    public void unregister(Long instanceId) {
+        instanceId2TaskPersistenceService.remove(instanceId);
     }
 
-    public static TaskPersistenceService fetchTaskPersistenceService(Long instanceId) {
-        return INSTANCE_ID_2_TASK_PERSISTENCE_SERVICE.get(instanceId);
+    public TaskPersistenceService fetchTaskPersistenceService(Long instanceId) {
+        return instanceId2TaskPersistenceService.get(instanceId);
     }
 }

@@ -23,7 +23,6 @@ import tech.powerjob.worker.core.processor.sdk.BroadcastProcessor;
 import tech.powerjob.worker.core.processor.sdk.MapReduceProcessor;
 import tech.powerjob.worker.extension.processor.ProcessorBean;
 import tech.powerjob.worker.log.OmsLogger;
-import tech.powerjob.worker.persistence.PersistenceServiceManager;
 import tech.powerjob.worker.persistence.TaskDO;
 import tech.powerjob.worker.persistence.TaskPersistenceService;
 import tech.powerjob.worker.pojo.model.InstanceInfo;
@@ -138,7 +137,7 @@ public class HeavyProcessorRunnable implements Runnable {
         Stopwatch stopwatch = Stopwatch.createStarted();
         log.debug("[ProcessorRunnable-{}] the last task(taskId={}) start to process.", instanceId, taskId);
 
-        TaskPersistenceService taskPersistenceService = Optional.ofNullable(PersistenceServiceManager.fetchTaskPersistenceService(instanceId)).orElse(workerRuntime.getTaskPersistenceService());
+        TaskPersistenceService taskPersistenceService = Optional.ofNullable(workerRuntime.getPersistenceServiceManager().fetchTaskPersistenceService(instanceId)).orElse(workerRuntime.getTaskPersistenceService());
         List<TaskResult> taskResults = taskPersistenceService.getAllTaskResult(instanceId, task.getSubInstanceId());
         try {
             switch (executeType) {

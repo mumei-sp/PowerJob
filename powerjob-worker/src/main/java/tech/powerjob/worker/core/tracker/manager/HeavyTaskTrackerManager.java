@@ -17,25 +17,25 @@ import java.util.function.Function;
  */
 public class HeavyTaskTrackerManager {
 
-    private static final Map<Long, HeavyTaskTracker> INSTANCE_ID_2_TASK_TRACKER = Maps.newConcurrentMap();
+    private final Map<Long, HeavyTaskTracker> instanceId2TaskTracker = Maps.newConcurrentMap();
     /**
      * 获取 TaskTracker
      */
-    public static HeavyTaskTracker getTaskTracker(Long instanceId) {
-        return INSTANCE_ID_2_TASK_TRACKER.get(instanceId);
+    public HeavyTaskTracker getTaskTracker(Long instanceId) {
+        return instanceId2TaskTracker.get(instanceId);
     }
 
-    public static HeavyTaskTracker removeTaskTracker(Long instanceId) {
-        return INSTANCE_ID_2_TASK_TRACKER.remove(instanceId);
+    public HeavyTaskTracker removeTaskTracker(Long instanceId) {
+        return instanceId2TaskTracker.remove(instanceId);
     }
 
-    public static void atomicCreateTaskTracker(Long instanceId, Function<Long, HeavyTaskTracker> creator) {
-        INSTANCE_ID_2_TASK_TRACKER.computeIfAbsent(instanceId, creator);
+    public void atomicCreateTaskTracker(Long instanceId, Function<Long, HeavyTaskTracker> creator) {
+        instanceId2TaskTracker.computeIfAbsent(instanceId, creator);
     }
 
-    public static List<Long> getAllFrequentTaskTrackerKeys() {
+    public List<Long> getAllFrequentTaskTrackerKeys() {
         List<Long> keys = Lists.newLinkedList();
-        INSTANCE_ID_2_TASK_TRACKER.forEach((key, tk) -> {
+        instanceId2TaskTracker.forEach((key, tk) -> {
             if (tk instanceof FrequentTaskTracker) {
                 keys.add(key);
             }
@@ -43,7 +43,7 @@ public class HeavyTaskTrackerManager {
         return keys;
     }
 
-    public static int currentTaskTrackerSize(){
-        return INSTANCE_ID_2_TASK_TRACKER.size();
+    public int currentTaskTrackerSize(){
+        return instanceId2TaskTracker.size();
     }
 }
